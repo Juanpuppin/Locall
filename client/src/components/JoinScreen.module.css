@@ -1,13 +1,5 @@
 .join {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  gap: 14px;
-}
-
-.foot {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
   gap: 14px;
 }

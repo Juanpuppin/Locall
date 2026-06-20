@@ -1,6 +1,8 @@
 // Design system do Locall — primitivos de UI reutilizáveis (skin Commodore 64).
 // Importe daqui: `import { Button, Window, Badge } from '../ui'`.
 export { Window } from './Window'
+export type { Rect } from './Window'
+export { Clock } from './Clock'
 export { Button } from './Button'
 export { ControlTile } from './ControlTile'
 export { TextField } from './TextField'
@@ -10,4 +12,5 @@ export { Avatar } from './Avatar'
 export { Badge } from './Badge'
 export { Alert } from './Alert'
 export { LevelMeter } from './LevelMeter'
+export { ScreenView } from './ScreenView'
 export { Brand } from './Brand'

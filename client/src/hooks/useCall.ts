@@ -9,6 +9,9 @@ const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
 }
 
+const CAN_SHARE_SCREEN =
+  typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 const statusOf = (e: unknown) => (e as ApiError)?.status
 
@@ -16,6 +19,8 @@ export interface UseCall {
   state: CallState
   remoteName: string | null
   muted: boolean
+  sharing: boolean
+  canShareScreen: boolean
   quality: Quality
   connectedAt: number | null
   error: string | null
@@ -24,16 +29,20 @@ export interface UseCall {
   currentMicId: string | null
   localStream: MediaStream | null
   remoteStream: MediaStream | null
+  remoteScreenStream: MediaStream | null
   join: (name: string) => Promise<void>
   leave: () => void
   toggleMute: () => void
   selectMic: (deviceId: string) => Promise<void>
+  shareScreen: () => Promise<void>
+  stopScreen: () => void
 }
 
 export function useCall(): UseCall {
   const [state, setState] = useState<CallState>('idle')
   const [remoteName, setRemoteName] = useState<string | null>(null)
   const [muted, setMuted] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [quality, setQuality] = useState<Quality>('unknown')
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -42,23 +51,29 @@ export function useCall(): UseCall {
   const [currentMicId, setCurrentMicId] = useState<string | null>(null)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  const [remoteScreenStream, setRemoteScreenStream] = useState<MediaStream | null>(null)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const screenStreamRef = useRef<MediaStream | null>(null)
+  const screenSenderRef = useRef<RTCRtpSender | null>(null)
   const myIdRef = useRef<number | null>(null)
-  const isOffererRef = useRef(false)
   const pollSessionRef = useRef(0)
-  const pendingRef = useRef<RTCIceCandidateInit[]>([])
   const nameRef = useRef('')
   const mutedRef = useRef(false)
   const statsTimerRef = useRef<number | null>(null)
+
+  // Perfect negotiation
+  const politeRef = useRef(true)
+  const makingOfferRef = useRef(false)
+  const ignoreOfferRef = useRef(false)
 
   const refreshMics = useCallback(async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices()
       setMics(devices.filter((d) => d.kind === 'audioinput'))
     } catch {
-      /* sem permissão ainda: labels virão depois do getUserMedia */
+      /* sem permissão ainda */
     }
   }, [])
 
@@ -113,127 +128,171 @@ export function useCall(): UseCall {
     }, 2000)
   }, [stopStats])
 
-  const drainCandidates = useCallback(async () => {
-    const pc = pcRef.current
-    if (!pc) return
-    const list = pendingRef.current.splice(0)
-    for (const c of list) await pc.addIceCandidate(c).catch(() => {})
-  }, [])
-
   const stopMic = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setLocalStream(null)
   }, [])
 
-  const createPeerConnection = useCallback(() => {
+  const stopScreen = useCallback(() => {
+    const pc = pcRef.current
+    const sender = screenSenderRef.current
+    if (pc && sender) {
+      try {
+        pc.removeTrack(sender) // dispara renegociação
+      } catch {
+        /* já removido */
+      }
+    }
+    screenSenderRef.current = null
+    screenStreamRef.current?.getTracks().forEach((t) => t.stop())
+    screenStreamRef.current = null
+    setSharing(false)
+  }, [])
+
+  // setupPc/handleSignal/maybeRecover referenciam-se mutuamente; como todos são
+  // estáveis (useCallback []), as referências resolvem em runtime sem problema.
+  const setupPc = useCallback(() => {
     pcRef.current?.close()
-    pendingRef.current = []
     const pc = new RTCPeerConnection({ iceServers: [] }) // só rede local
 
-    streamRef.current?.getTracks().forEach((t) => pc.addTrack(t, streamRef.current!))
-
     pc.onicecandidate = (ev) => {
-      if (ev.candidate) sendSignal({ type: 'ice', candidate: ev.candidate.toJSON() })
+      if (ev.candidate) sendSignal({ candidate: ev.candidate.toJSON() })
     }
-    pc.ontrack = (ev) => setRemoteStream(ev.streams[0])
+
+    pc.ontrack = (ev) => {
+      const stream = ev.streams[0] ?? new MediaStream([ev.track])
+      if (ev.track.kind === 'audio') {
+        setRemoteStream(stream)
+      } else {
+        const show = () => setRemoteScreenStream(stream)
+        const hide = () => setRemoteScreenStream(null)
+        show()
+        ev.track.onmute = hide
+        ev.track.onunmute = show
+        ev.track.onended = hide
+      }
+    }
+
+    pc.onnegotiationneeded = async () => {
+      try {
+        makingOfferRef.current = true
+        await pc.setLocalDescription()
+        if (pc.localDescription) sendSignal({ description: pc.localDescription })
+      } catch (err) {
+        console.error('negotiationneeded:', err)
+      } finally {
+        makingOfferRef.current = false
+      }
+    }
+
     pc.onconnectionstatechange = () => {
+      if (pcRef.current !== pc) return
       const st = pc.connectionState
       if (st === 'connected') {
         setState('connected')
         setConnectedAt((prev) => prev ?? Date.now())
-        sendSignal({ type: 'hello', name: nameRef.current })
+        sendSignal({ name: nameRef.current })
         startStats()
       } else if (st === 'failed') {
         setState('reconnecting')
-        window.setTimeout(() => maybeRecover(), 1000)
+        window.setTimeout(() => maybeRecover(), 800)
       } else if (st === 'disconnected') {
         setState('reconnecting')
       }
     }
 
+    // (re)anexa as faixas locais já existentes (microfone + tela, se houver)
+    streamRef.current?.getTracks().forEach((t) => pc.addTrack(t, streamRef.current!))
+    const screenTrack = screenStreamRef.current?.getVideoTracks()[0]
+    if (screenTrack && screenStreamRef.current) {
+      screenSenderRef.current = pc.addTrack(screenTrack, screenStreamRef.current)
+    }
+
     pcRef.current = pc
     return pc
-    // maybeRecover é estável (useCallback []), referência resolvida em runtime
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sendSignal, startStats])
 
-  const makeOffer = useCallback(async () => {
-    const pc = createPeerConnection()
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-    sendSignal({ type: 'offer', sdp: offer })
-    sendSignal({ type: 'hello', name: nameRef.current })
-    setState('connecting')
-  }, [createPeerConnection, sendSignal])
+  const handleBye = useCallback(() => {
+    pcRef.current?.close()
+    pcRef.current = null
+    screenSenderRef.current = null
+    stopStats()
+    setRemoteStream(null)
+    setRemoteScreenStream(null)
+    setRemoteName(null)
+    setConnectedAt(null)
+    setQuality('unknown')
+    setState('waiting')
+  }, [stopStats])
+
+  const handleSignal = useCallback(
+    async (msg: SignalMessage) => {
+      if (myIdRef.current == null) return
+      if (msg.name) setRemoteName(msg.name)
+      if (msg.bye) {
+        handleBye()
+        return
+      }
+      if (!msg.description && !msg.candidate) return
+
+      const pc = pcRef.current ?? setupPc()
+      try {
+        if (msg.description) {
+          const offerCollision =
+            msg.description.type === 'offer' && (makingOfferRef.current || pc.signalingState !== 'stable')
+          ignoreOfferRef.current = !politeRef.current && offerCollision
+          if (ignoreOfferRef.current) return
+
+          await pc.setRemoteDescription(msg.description)
+          if (msg.description.type === 'offer') {
+            await pc.setLocalDescription()
+            if (pc.localDescription) sendSignal({ description: pc.localDescription })
+          }
+        } else if (msg.candidate) {
+          try {
+            await pc.addIceCandidate(msg.candidate)
+          } catch (err) {
+            if (!ignoreOfferRef.current) console.warn('addIceCandidate:', err)
+          }
+        }
+      } catch (err) {
+        console.error('negociação:', err)
+      }
+    },
+    [handleBye, sendSignal, setupPc],
+  )
 
   const maybeRecover = useCallback(() => {
     if (myIdRef.current == null) return
-    if (pcRef.current && pcRef.current.connectionState === 'connected') return
-    if (isOffererRef.current) makeOffer().catch(() => {})
-    else sendSignal({ type: 'recall' })
-  }, [makeOffer, sendSignal])
-
-  const handleMessage = useCallback(
-    async (msg: SignalMessage) => {
-      if (myIdRef.current == null) return
-      try {
-        if (msg.type === 'offer') {
-          const pc = createPeerConnection()
-          await pc.setRemoteDescription(msg.sdp!)
-          await drainCandidates()
-          const answer = await pc.createAnswer()
-          await pc.setLocalDescription(answer)
-          sendSignal({ type: 'answer', sdp: answer })
-          sendSignal({ type: 'hello', name: nameRef.current })
-          setState('connecting')
-        } else if (msg.type === 'answer') {
-          const pc = pcRef.current
-          if (!pc) return
-          await pc.setRemoteDescription(msg.sdp!)
-          await drainCandidates()
-          setState('connecting')
-        } else if (msg.type === 'ice') {
-          const pc = pcRef.current
-          if (pc && pc.remoteDescription && msg.candidate) {
-            await pc.addIceCandidate(msg.candidate).catch(() => {})
-          } else if (msg.candidate) {
-            pendingRef.current.push(msg.candidate)
-          }
-        } else if (msg.type === 'hello') {
-          if (msg.name) setRemoteName(msg.name)
-        } else if (msg.type === 'recall') {
-          if (isOffererRef.current) await makeOffer()
-        } else if (msg.type === 'bye') {
-          pcRef.current?.close()
-          pcRef.current = null
-          pendingRef.current = []
-          setRemoteStream(null)
-          setRemoteName(null)
-          setConnectedAt(null)
-          setQuality('unknown')
-          stopStats()
-          setState('waiting')
-        }
-      } catch (err) {
-        console.error('erro na sinalização:', err)
-      }
-    },
-    [createPeerConnection, drainCandidates, makeOffer, sendSignal, stopStats],
-  )
+    const pc = pcRef.current
+    if (!pc || pc.connectionState === 'connected') return
+    try {
+      pc.restartIce() // dispara onnegotiationneeded com ICE restart
+    } catch {
+      /* navegador antigo */
+    }
+  }, [])
 
   const teardown = useCallback(
     (endNotice: string | null) => {
       pollSessionRef.current++
       myIdRef.current = null
-      isOffererRef.current = false
-      pendingRef.current = []
+      politeRef.current = true
+      makingOfferRef.current = false
+      ignoreOfferRef.current = false
       pcRef.current?.close()
       pcRef.current = null
+      screenSenderRef.current = null
+      screenStreamRef.current?.getTracks().forEach((t) => t.stop())
+      screenStreamRef.current = null
       stopStats()
       stopMic()
       setRemoteStream(null)
+      setRemoteScreenStream(null)
       setRemoteName(null)
+      setSharing(false)
       setMuted(false)
       mutedRef.current = false
       setQuality('unknown')
@@ -250,16 +309,16 @@ export function useCall(): UseCall {
       try {
         const { messages } = await signaling.poll(myIdRef.current)
         if (session !== pollSessionRef.current) return
-        for (const m of messages) await handleMessage(m)
+        for (const m of messages) await handleSignal(m)
       } catch (err) {
         if (statusOf(err) === 410) {
           if (session === pollSessionRef.current) teardown('A conexão com o servidor caiu.')
           return
         }
-        await sleep(2000) // rede oscilou; tenta de novo
+        await sleep(2000)
       }
     }
-  }, [handleMessage, teardown])
+  }, [handleSignal, teardown])
 
   const join = useCallback(
     async (name: string) => {
@@ -312,22 +371,27 @@ export function useCall(): UseCall {
       void pollLoop()
 
       if (joined.otherPresent) {
-        isOffererRef.current = true
+        // Quem chega por último inicia: impolite + cria a oferta (via negotiationneeded)
+        politeRef.current = false
         setState('connecting')
-        await makeOffer()
+        setupPc()
       } else {
-        isOffererRef.current = false
+        // Quem chega primeiro espera a oferta do outro (polite, pc criado sob demanda)
+        politeRef.current = true
         setState('waiting')
       }
     },
-    [makeOffer, pollLoop, refreshMics, stopMic],
+    [pollLoop, refreshMics, setupPc, stopMic],
   )
 
   const leave = useCallback(() => {
     const id = myIdRef.current
-    if (id != null) signaling.leave(id).catch(() => {})
+    if (id != null) {
+      sendSignal({ bye: true })
+      signaling.leave(id).catch(() => {})
+    }
     teardown('Você desligou.')
-  }, [teardown])
+  }, [sendSignal, teardown])
 
   const toggleMute = useCallback(() => {
     const track = streamRef.current?.getAudioTracks()[0]
@@ -356,6 +420,27 @@ export function useCall(): UseCall {
       console.error('troca de microfone falhou:', err)
     }
   }, [])
+
+  const shareScreen = useCallback(async () => {
+    if (!CAN_SHARE_SCREEN) {
+      setError('Seu navegador não permite compartilhar a tela.')
+      return
+    }
+    const pc = pcRef.current
+    if (!pc) return
+    let display: MediaStream
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+    } catch {
+      return // usuário cancelou
+    }
+    const track = display.getVideoTracks()[0]
+    if (!track) return
+    screenStreamRef.current = display
+    screenSenderRef.current = pc.addTrack(track, display) // dispara renegociação
+    setSharing(true)
+    track.onended = () => stopScreen() // usuário clicou em "parar" do navegador
+  }, [stopScreen])
 
   // Lista de microfones + atualização quando dispositivos mudam
   useEffect(() => {
@@ -392,6 +477,8 @@ export function useCall(): UseCall {
     state,
     remoteName,
     muted,
+    sharing,
+    canShareScreen: CAN_SHARE_SCREEN,
     quality,
     connectedAt,
     error,
@@ -400,9 +487,12 @@ export function useCall(): UseCall {
     currentMicId,
     localStream,
     remoteStream,
+    remoteScreenStream,
     join,
     leave,
     toggleMute,
     selectMic,
+    shareScreen,
+    stopScreen,
   }
 }

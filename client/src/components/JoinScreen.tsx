@@ -21,20 +21,18 @@ export function JoinScreen({ call }: { call: UseCall }) {
       {call.notice && <Alert variant="info">{call.notice}</Alert>}
       {call.error && <Alert variant="error">{call.error}</Alert>}
 
-      <div className={styles.foot}>
-        <TextField
-          label="Seu nome"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Como te chamam?"
-          maxLength={24}
-          autoComplete="name"
-          autoFocus
-        />
-        <Button variant="primary" size="lg" block type="submit" disabled={!name.trim()}>
-          Entrar na chamada
-        </Button>
-      </div>
+      <TextField
+        label="Seu nome"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Como te chamam?"
+        maxLength={24}
+        autoComplete="name"
+        autoFocus
+      />
+      <Button variant="primary" size="lg" block type="submit" disabled={!name.trim()}>
+        Entrar na chamada
+      </Button>
     </form>
   )
 }

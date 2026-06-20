@@ -1,44 +1,104 @@
 .window {
-  width: 100%;
-  max-width: 420px;
+  position: absolute;
   background: var(--panel);
   border: 2px solid var(--border);
-  box-shadow: 6px 6px 0 var(--shadow);
+  box-shadow: 5px 5px 0 var(--shadow);
   display: flex;
   flex-direction: column;
-  min-height: 560px;
+  overflow: hidden;
 }
 
-.titlebar {
+.bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--title);
+  gap: 8px;
   color: var(--cream);
   border-bottom: 2px solid var(--border);
-  padding: 7px 10px;
-  font-size: 1.2rem;
+  padding: 6px 10px;
+  font-size: 1.1rem;
   letter-spacing: 0.04em;
+  user-select: none;
+  cursor: move;
+  touch-action: none;
 }
 
 .title {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
-.winbtns {
-  letter-spacing: 3px;
-  opacity: 0.85;
+.winbtn {
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 2px solid var(--cream);
+  color: var(--cream);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.winbtn:active {
+  transform: translate(1px, 1px);
 }
 
 .body {
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 14px;
   flex: 1;
-  padding: 18px 18px 20px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.flush {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.purple {
+  background: var(--title);
+}
+.teal {
+  background: var(--good);
+}
+.olive {
+  background: var(--olive);
+}
+.orange {
+  background: var(--danger);
+}
+.gold {
+  background: var(--warn);
+}
+
+.resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--border) 45% 55%,
+    transparent 55% 68%,
+    var(--border) 68% 78%,
+    transparent 78%
+  );
 }

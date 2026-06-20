@@ -35,6 +35,7 @@ export function CallScreen({ call }: { call: UseCall }) {
           {connected ? formatDuration(elapsed) : STATUS[call.state]}
         </div>
         {connected && <QualityBadge quality={call.quality} />}
+        {call.sharing && <div className={styles.shareNote}>● VOCÊ ESTÁ COMPARTILHANDO A TELA</div>}
       </div>
 
       <div className={styles.controls}>
@@ -48,6 +49,17 @@ export function CallScreen({ call }: { call: UseCall }) {
         >
           <LevelMeter level={level} muted={call.muted} />
         </ControlTile>
+
+        {connected && call.canShareScreen && (
+          <ControlTile
+            icon={call.sharing ? '⏹️' : '🖥️'}
+            label={call.sharing ? 'Parar' : 'Tela'}
+            variant={call.sharing ? 'warning' : 'default'}
+            pressed={call.sharing}
+            onClick={call.sharing ? call.stopScreen : call.shareScreen}
+            ariaLabel="Compartilhar tela"
+          />
+        )}
 
         <ControlTile icon="📴" label="Desligar" variant="danger" onClick={call.leave} ariaLabel="Desligar" />
       </div>

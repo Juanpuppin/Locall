@@ -3,6 +3,9 @@
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   background: var(--bg);
   border: 2px solid var(--border);
   padding: 7px 10px;
@@ -10,16 +13,21 @@
 
 .icon {
   font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .select {
   flex: 1;
+  min-width: 0; /* permite encolher e não estourar a janela */
+  width: 100%;
   background: transparent;
   border: none;
   color: var(--ink);
-  font-family: inherit;
   font-size: 1.1rem;
   outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .select option {

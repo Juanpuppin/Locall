@@ -1,0 +1,90 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--ink-2);
+  color: var(--cream);
+  border-top: 2px solid var(--border);
+  padding: 6px 12px;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.brand {
+  white-space: nowrap;
+}
+
+.launchers {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.launch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 2px solid var(--cream);
+  color: var(--cream);
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.launch:active {
+  transform: translate(1px, 1px);
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.icon {
+  font-size: 1.05rem;
+}
+
+/* Janela aberta */
+.active {
+  background: var(--title);
+}
+
+/* Compartilhamento ativo, janela minimizada: chama atenção */
+.attention {
+  background: var(--good);
+  color: var(--cream);
+  border-color: var(--cream);
+  font-size: 1.05rem;
+  padding: 5px 14px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.attention .icon {
+  font-size: 1.2rem;
+}
+
+.live {
+  color: var(--cream);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
