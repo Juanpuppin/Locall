@@ -1,0 +1,88 @@
+/* Locall — skin Commodore 64 (Light), baseado no mockup "B". Paleta sépia/creme,
+   fonte pixel VT323 (embutida em fonts.css), molduras retas com sombra dura. */
+
+:root,
+[data-theme='light'] {
+  --bg: #f3ead4;
+  --desk: #e6d8ba;
+  --panel: #e6d6ad;
+  --btn: #ddcca8;
+  --btn-hi: #efe6cf;
+  --ink: #3a2c15;
+  --ink-2: #5a4123;
+  --border: #5a4123;
+  --cream: #f3ead4;
+  --title: #864e74;
+  --good: #2c6f63;
+  --warn: #bb8b1e;
+  --danger: #a8521c;
+  --olive: #5f6e2a;
+  --shadow: rgba(58, 44, 21, 0.32);
+  --scan: rgba(58, 44, 21, 0.05);
+}
+
+[data-theme='dark'] {
+  --bg: #2a2014;
+  --desk: #161009;
+  --panel: #342a1b;
+  --btn: #463a27;
+  --btn-hi: #574731;
+  --ink: #f3ead4;
+  --ink-2: #d8c39a;
+  --border: #c9b88f;
+  --cream: #f3ead4;
+  --title: #9a5a85;
+  --good: #4fae8b;
+  --warn: #d8a93a;
+  --danger: #d2742f;
+  --olive: #8fa24a;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --scan: rgba(0, 0, 0, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'VT323', 'Courier New', monospace;
+  font-size: 19px;
+  line-height: 1.25;
+  color: var(--ink);
+  background-color: var(--desk);
+  /* leve textura de "scanline" de CRT */
+  background-image: repeating-linear-gradient(
+    0deg,
+    var(--scan) 0,
+    var(--scan) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

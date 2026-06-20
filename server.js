@@ -102,16 +102,66 @@ function readBody(req) {
 }
 
 // ---------------------------------------------------------------------------
+// Servir a interface
+// ---------------------------------------------------------------------------
+
+// Preferimos o build do React (client/dist); se não existir, caímos na
+// página legada (index.html da raiz).
+const WEB_ROOT = path.join(__dirname, 'client', 'dist');
+const HAS_BUILD = fs.existsSync(path.join(WEB_ROOT, 'index.html'));
+const LEGACY_INDEX = path.join(__dirname, 'index.html');
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json; charset=utf-8',
+};
+
+function serveIndex(res, root) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(fs.readFileSync(path.join(root, 'index.html')));
+}
+
+function serveStatic(res, pathname) {
+  if (!HAS_BUILD) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(fs.readFileSync(LEGACY_INDEX));
+    return;
+  }
+  let rel = decodeURIComponent(pathname);
+  if (rel === '/') rel = '/index.html';
+  const filePath = path.join(WEB_ROOT, rel);
+  if (!filePath.startsWith(WEB_ROOT)) { // bloqueia path traversal
+    sendJson(res, 403, { error: 'proibido' });
+    return;
+  }
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      serveIndex(res, WEB_ROOT); // SPA: rota desconhecida -> index.html
+      return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.end(data);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Rotas
 // ---------------------------------------------------------------------------
 
 async function handle(req, res) {
   const url = new URL(req.url, 'https://x');
 
-  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-    const html = fs.readFileSync(path.join(__dirname, 'index.html'));
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
+  if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
+    serveStatic(res, url.pathname);
     return;
   }
 
@@ -238,7 +288,10 @@ server.listen(PORT, () => {
   }
   addrs.sort((a, b) => lanScore(a) - lanScore(b));
   console.log('');
-  console.log('=== Ligação Local ===');
+  console.log('=== Locall ===');
+  console.log(HAS_BUILD
+    ? '(servindo a interface React de client/dist)'
+    : '(interface legada; rode `npm run build` em client/ para a UI nova)');
   if (USE_HTTP) console.log('(modo --http: só para teste; o microfone só funciona em localhost)');
   console.log('Abra este endereço no navegador dos DOIS aparelhos:');
   console.log('');

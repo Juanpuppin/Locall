@@ -1,0 +1,15 @@
+.toggle {
+  background: transparent;
+  border: 2px solid var(--cream);
+  color: var(--cream);
+  width: 30px;
+  height: 26px;
+  font-size: 0.95rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.toggle:active {
+  transform: translate(1px, 1px);
+}

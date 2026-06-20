@@ -1,8 +1,11 @@
-# 📞 Ligação Local
+# 📞 Locall
 
 Chamada de voz pela rede Wi-Fi de casa, **sem internet e sem serviço de terceiros**.
 O áudio vai direto de um aparelho para o outro (WebRTC); o servidor só apresenta
 a página e ajuda os dois a se encontrarem.
+
+A interface é um app **React + TypeScript** (em `client/`); o `server.js` serve o
+build pronto e faz a sinalização. Veja **Interface (React)** abaixo para desenvolver.
 
 ## Como usar
 
@@ -20,6 +23,39 @@ a página e ajuda os dois a se encontrarem.
 4. Toque em **Entrar na chamada** nos dois aparelhos e libere o microfone.
 5. Pronto — podem conversar. Para encerrar, toque em **Desligar**
    (e `Ctrl+C` no servidor quando quiser parar tudo).
+
+## Interface (React)
+
+A UI fica em `client/` (Vite + React + TypeScript). O `server.js` serve o build
+de `client/dist` automaticamente; se não houver build, ele cai numa página simples.
+
+**Para gerar/atualizar a interface:**
+
+```bash
+cd client
+npm install        # só na primeira vez
+npm run build      # gera client/dist (é o que o server.js serve)
+```
+
+Depois é só rodar o `server.js` de sempre — ele já serve a interface nova.
+
+**Para desenvolver com recarga automática (hot reload):**
+
+```bash
+# terminal 1 — backend de sinalização em modo http
+node server.js --http
+
+# terminal 2 — Vite (faz proxy de /api para o backend)
+cd client && npm run dev
+```
+
+Abra o endereço que o Vite mostrar (ex.: `http://localhost:5173`). Em
+`localhost` o microfone funciona mesmo em http; para testar no celular use o
+build + HTTPS do `server.js`.
+
+Recursos da interface: tema claro/escuro, identidade (seu nome / nome do outro),
+estados claros de chamada, duração, mudo com medidor de nível, seletor de
+microfone, indicador de qualidade da conexão e reconexão automática.
 
 ## Pelo Claude (MCP)
 

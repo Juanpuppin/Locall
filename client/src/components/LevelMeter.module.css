@@ -1,0 +1,18 @@
+.meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 16px;
+  margin-top: 3px;
+}
+
+.bar {
+  width: 5px;
+  background: var(--ink-2);
+  opacity: 0.35;
+}
+
+.bar.on {
+  background: var(--good);
+  opacity: 1;
+}

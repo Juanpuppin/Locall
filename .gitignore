@@ -5,5 +5,10 @@ cert.pfx
 # Estado em tempo de execução do MCP (qual processo iniciou a chamada).
 .mcp-state.json
 
+# Dependências e build do front React
+client/node_modules/
+client/dist/
+*.tsbuildinfo
+
 # Logs / temporários
 *.log

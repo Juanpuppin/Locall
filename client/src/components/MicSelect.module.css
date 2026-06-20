@@ -1,0 +1,27 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  padding: 7px 10px;
+}
+
+.icon {
+  font-size: 1rem;
+}
+
+.select {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 1.1rem;
+  outline: none;
+}
+
+.select option {
+  background: var(--panel);
+  color: var(--ink);
+}
