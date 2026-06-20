@@ -1,0 +1,9 @@
+# Certificado HTTPS gerado automaticamente na 1ª execução (gen-cert.ps1).
+# Cada máquina gera o seu — não versionar.
+cert.pfx
+
+# Estado em tempo de execução do MCP (qual processo iniciou a chamada).
+.mcp-state.json
+
+# Logs / temporários
+*.log

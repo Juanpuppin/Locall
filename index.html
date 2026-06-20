@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Ligação Local</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #10151c;
+    color: #e8edf4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 24px;
+    text-align: center;
+  }
+  h1 { font-size: 1.3rem; font-weight: 600; letter-spacing: .02em; }
+  #status {
+    min-height: 3em;
+    font-size: 1.05rem;
+    color: #9fb0c3;
+    max-width: 30em;
+    line-height: 1.5;
+  }
+  #status.ok { color: #6fdc8c; }
+  #status.err { color: #ff8a80; }
+  button {
+    border: none;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 18px 36px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active { transform: scale(.97); }
+  #btnJoin { background: #1db954; color: #fff; font-size: 1.25rem; padding: 22px 48px; }
+  #btnMute { background: #2b3645; color: #e8edf4; }
+  #btnMute.muted { background: #e0a800; color: #10151c; }
+  #btnHang { background: #d9342b; color: #fff; }
+  #inCall { display: none; gap: 16px; flex-wrap: wrap; justify-content: center; max-width: 100%; }
+  .pulse {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #6fdc8c; display: inline-block; margin-right: 8px;
+    animation: pulse 1.4s ease-in-out infinite;
+    vertical-align: baseline;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: .35; transform: scale(.85); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  .hidden { display: none !important; }
+  #inCall.show { display: flex; }
+</style>
+</head>
+<body>
+  <h1>📞 Ligação Local</h1>
+  <div id="status">Toque no botão para entrar na chamada.</div>
+  <button id="btnJoin">Entrar na chamada</button>
+  <div id="inCall">
+    <button id="btnMute">🎙️ Silenciar</button>
+    <button id="btnHang">Desligar</button>
+  </div>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+
+<script>
+'use strict';
+
+const statusEl = document.getElementById('status');
+const btnJoin = document.getElementById('btnJoin');
+const btnMute = document.getElementById('btnMute');
+const btnHang = document.getElementById('btnHang');
+const inCall = document.getElementById('inCall');
+const remoteAudio = document.getElementById('remoteAudio');
+
+let myId = null;
+let pc = null;
+let localStream = null;
+let pollSession = 0; // cada entrada na sala ganha um número; loops antigos morrem
+let pendingCandidates = [];
+let isOfferer = false; // quem chega por último faz a oferta (e refaz na reconexão)
+
+function setStatus(text, cls) {
+  statusEl.className = cls || '';
+  statusEl.innerHTML = text;
+}
+
+function showIdle() {
+  btnJoin.classList.remove('hidden');
+  inCall.classList.remove('show');
+}
+
+function showInCall() {
+  btnJoin.classList.add('hidden');
+  inCall.classList.add('show');
+}
+
+// ---------------------------------------------------------------------------
+// Sinalização (long-polling no servidor da casa)
+// ---------------------------------------------------------------------------
+
+async function api(path, body) {
+  const opts = body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : {};
+  const resp = await fetch(path, opts);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw Object.assign(new Error(data.error || ('HTTP ' + resp.status)), { status: resp.status });
+  return data;
+}
+
+function sendSignal(data) {
+  if (myId === null) return;
+  api('/api/signal', { id: myId, data }).catch((err) => console.warn('signal falhou:', err));
+}
+
+async function pollLoop() {
+  const session = ++pollSession; // invalida qualquer loop anterior
+  while (session === pollSession && myId !== null) {
+    try {
+      const { messages } = await api('/api/poll?id=' + myId);
+      if (session !== pollSession) return; // saímos/reentramos enquanto esperávamos
+      for (const msg of messages) await handleMessage(msg);
+    } catch (err) {
+      if (err.status === 410) { // servidor nos removeu da sala
+        if (session === pollSession) teardown('A conexão com o servidor caiu. Toque para entrar de novo.');
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 2000)); // rede oscilou; tenta de novo
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WebRTC
+// ---------------------------------------------------------------------------
+
+function createPeerConnection() {
+  if (pc) pc.close();
+  pc = new RTCPeerConnection({ iceServers: [] }); // só rede local, sem internet
+
+  for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+
+  pc.onicecandidate = (ev) => {
+    if (ev.candidate) sendSignal({ type: 'ice', candidate: ev.candidate });
+  };
+
+  pc.ontrack = (ev) => {
+    remoteAudio.srcObject = ev.streams[0];
+    remoteAudio.play().catch(() => {}); // autoplay já liberado pelo toque em "Entrar"
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    if (pc.connectionState === 'connected') {
+      setStatus('<span class="pulse"></span>Conectado — pode falar!', 'ok');
+    } else if (pc.connectionState === 'failed') {
+      setStatus('Conexão caiu — tentando reconectar...', '');
+      setTimeout(maybeRecover, 1000); // ex.: tela do celular bloqueou
+    } else if (pc.connectionState === 'disconnected') {
+      setStatus('Conexão instável... tentando recuperar.', '');
+    }
+  };
+  return pc;
+}
+
+async function makeOffer() {
+  createPeerConnection();
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  sendSignal({ type: 'offer', sdp: pc.localDescription });
+  setStatus('Chamando...');
+}
+
+// Reconecta quando a chamada cai (tela bloqueada, Wi-Fi oscilou). Quem fez a
+// oferta refaz a chamada; o outro lado apenas pede para o ofertante refazer.
+function maybeRecover() {
+  if (myId === null) return;
+  if (pc && pc.connectionState === 'connected') return;
+  if (isOfferer) makeOffer().catch(() => {});
+  else sendSignal({ type: 'recall' });
+}
+
+async function handleMessage(msg) {
+  if (myId === null) return; // já desligamos; ignora mensagens atrasadas
+  try {
+    if (msg.type === 'offer') {
+      // O outro entrou (ou voltou): responde com answer
+      createPeerConnection();
+      await pc.setRemoteDescription(msg.sdp);
+      await drainCandidates();
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      sendSignal({ type: 'answer', sdp: pc.localDescription });
+      setStatus('Conectando o áudio...');
+    } else if (msg.type === 'answer') {
+      if (!pc) return;
+      await pc.setRemoteDescription(msg.sdp);
+      await drainCandidates();
+      setStatus('Conectando o áudio...');
+    } else if (msg.type === 'ice') {
+      if (pc && pc.remoteDescription) {
+        await pc.addIceCandidate(msg.candidate).catch(() => {});
+      } else {
+        pendingCandidates.push(msg.candidate);
+      }
+    } else if (msg.type === 'recall') {
+      // O outro lado caiu e voltou: se sou eu quem faz a oferta, refaço a chamada
+      if (isOfferer) await makeOffer();
+    } else if (msg.type === 'bye') {
+      if (pc) { pc.close(); pc = null; }
+      pendingCandidates = [];
+      remoteAudio.srcObject = null;
+      setStatus('A outra pessoa saiu. Aguardando ela voltar...');
+    }
+  } catch (err) {
+    console.error('erro na sinalização:', err);
+  }
+}
+
+async function drainCandidates() {
+  const list = pendingCandidates.splice(0);
+  for (const c of list) await pc.addIceCandidate(c).catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
+// Entrar / sair
+// ---------------------------------------------------------------------------
+
+btnJoin.onclick = async () => {
+  btnJoin.disabled = true;
+  setStatus('Pedindo acesso ao microfone...');
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  } catch (err) {
+    setStatus('Sem acesso ao microfone. Libere a permissão no navegador e tente de novo.', 'err');
+    btnJoin.disabled = false;
+    return;
+  }
+
+  // Tenta entrar; se a sala estiver "cheia" por causa de um fantasma (o outro
+  // aparelho travou sem avisar), o servidor libera a vaga em até ~10s — então
+  // re-tentamos por um tempo antes de desistir.
+  let joined;
+  const deadline = Date.now() + 30000;
+  while (true) {
+    try {
+      joined = await api('/api/join', {});
+      break;
+    } catch (err) {
+      if (err.status === 409 && Date.now() < deadline) {
+        setStatus('A sala parece cheia — tentando entrar...');
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      setStatus(err.status === 409
+        ? 'A sala já está cheia (2 pessoas).'
+        : 'Não consegui falar com o servidor. Ele está rodando?', 'err');
+      stopMic();
+      btnJoin.disabled = false;
+      return;
+    }
+  }
+
+  myId = joined.id;
+  btnJoin.disabled = false;
+  showInCall();
+  pollLoop();
+
+  if (joined.otherPresent) {
+    isOfferer = true; // quem chega por último liga: cria a oferta
+    await makeOffer();
+  } else {
+    isOfferer = false;
+    setStatus('Aguardando a outra pessoa entrar...<br><small>Peça para ela abrir este mesmo endereço.</small>');
+  }
+};
+
+btnMute.onclick = () => {
+  if (!localStream) return;
+  const track = localStream.getAudioTracks()[0];
+  track.enabled = !track.enabled;
+  btnMute.classList.toggle('muted', !track.enabled);
+  btnMute.textContent = track.enabled ? '🎙️ Silenciar' : '🔇 Silenciado';
+};
+
+btnHang.onclick = () => {
+  if (myId !== null) api('/api/leave', { id: myId }).catch(() => {});
+  teardown('Você desligou. Toque para entrar de novo.');
+};
+
+function stopMic() {
+  if (localStream) {
+    for (const t of localStream.getTracks()) t.stop();
+    localStream = null;
+  }
+}
+
+function teardown(message) {
+  pollSession++; // mata o loop de poll atual
+  myId = null;
+  isOfferer = false;
+  pendingCandidates = [];
+  if (pc) { pc.close(); pc = null; }
+  remoteAudio.srcObject = null;
+  stopMic();
+  btnMute.classList.remove('muted');
+  btnMute.textContent = '🎙️ Silenciar';
+  showIdle();
+  setStatus(message);
+}
+
+// Quando o celular volta do bloqueio / a rede volta, tenta reconectar a chamada
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') maybeRecover();
+});
+window.addEventListener('online', maybeRecover);
+
+// Avisa o servidor se a pessoa fechar a aba/navegador
+window.addEventListener('pagehide', () => {
+  if (myId !== null) {
+    navigator.sendBeacon('/api/leave', JSON.stringify({ id: myId }));
+  }
+});
+</script>
+</body>
+</html>
