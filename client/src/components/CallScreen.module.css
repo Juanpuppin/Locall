@@ -6,50 +6,6 @@
   gap: 16px;
 }
 
-.avatarWrap {
-  margin-top: 12px;
-  position: relative;
-}
-
-.avatar {
-  width: 104px;
-  height: 104px;
-  display: grid;
-  place-items: center;
-  font-size: 2.6rem;
-  color: var(--ink);
-  background: var(--bg);
-  border: 2px solid var(--border);
-  box-shadow: 4px 4px 0 var(--shadow);
-}
-
-.avatarWrap.live .avatar {
-  border-color: var(--good);
-}
-
-.avatarWrap.warn .avatar {
-  border-color: var(--warn);
-}
-
-.avatarWrap.live::after {
-  content: '● AO VIVO';
-  position: absolute;
-  left: 50%;
-  bottom: -24px;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  color: var(--good);
-  font-size: 0.85rem;
-  letter-spacing: 0.1em;
-  animation: blink 1.1s steps(1) infinite;
-}
-
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
-
 .who {
   text-align: center;
   margin-top: 22px;
@@ -66,7 +22,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.statusWarn {
+.warn {
   color: var(--warn);
 }
 
@@ -75,52 +31,4 @@
   gap: 12px;
   margin-top: auto;
   width: 100%;
-}
-
-.ctrl {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  background: var(--btn);
-  color: var(--ink);
-  border: 2px solid var(--border);
-  padding: 12px 10px;
-  font-size: 1.05rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  box-shadow: 3px 3px 0 var(--shadow);
-}
-
-.ctrl:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--shadow);
-}
-
-.ctrlIcon {
-  font-size: 1.5rem;
-}
-
-.ctrlLabel {
-  font-size: 0.95rem;
-  color: var(--ink-2);
-}
-
-.ctrl.muted {
-  background: var(--warn);
-  color: var(--cream);
-}
-
-.ctrl.muted .ctrlLabel {
-  color: var(--cream);
-}
-
-.ctrl.hang {
-  background: var(--danger);
-  color: var(--cream);
-}
-
-.ctrl.hang .ctrlLabel {
-  color: var(--cream);
 }

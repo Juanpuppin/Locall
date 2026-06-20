@@ -1,0 +1,17 @@
+.alert {
+  border: 2px solid;
+  padding: 8px 12px;
+  font-size: 1.1rem;
+  background: var(--bg);
+}
+
+.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.info {
+  border-style: dashed;
+  border-color: var(--ink-2);
+  color: var(--ink-2);
+}

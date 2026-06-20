@@ -1,0 +1,44 @@
+.window {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  box-shadow: 6px 6px 0 var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--title);
+  color: var(--cream);
+  border-bottom: 2px solid var(--border);
+  padding: 7px 10px;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+
+.title {
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.winbtns {
+  letter-spacing: 3px;
+  opacity: 0.85;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 18px 18px 20px;
+}

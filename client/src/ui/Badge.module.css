@@ -2,7 +2,6 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-top: 10px;
   font-size: 1rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -22,14 +21,14 @@
   background: var(--good);
 }
 
-.ok .dot {
+.warn .dot {
   background: var(--warn);
 }
 
-.poor .dot {
+.danger .dot {
   background: var(--danger);
 }
 
-.unknown .dot {
+.neutral .dot {
   background: var(--ink-2);
 }

@@ -1,0 +1,47 @@
+.tile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: var(--btn);
+  color: var(--ink);
+  border: 2px solid var(--border);
+  padding: 12px 10px;
+  font-family: inherit;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--shadow);
+  cursor: pointer;
+}
+
+.tile:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--shadow);
+}
+
+.icon {
+  font-size: 1.5rem;
+}
+
+.label {
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.warning {
+  background: var(--warn);
+  color: var(--cream);
+}
+.warning .label {
+  color: var(--cream);
+}
+
+.danger {
+  background: var(--danger);
+  color: var(--cream);
+}
+.danger .label {
+  color: var(--cream);
+}

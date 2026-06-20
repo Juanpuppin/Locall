@@ -1,0 +1,21 @@
+.brand {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.icon {
+  font-size: 2.4rem;
+}
+
+.name {
+  font-size: 2.8rem;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+  color: var(--ink);
+}
+
+.tagline {
+  color: var(--ink-2);
+  margin-top: 2px;
+  font-size: 1.1rem;
+}

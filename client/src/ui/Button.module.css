@@ -1,0 +1,84 @@
+.btn {
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 2px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ink);
+  background: var(--btn);
+}
+
+.btn:active {
+  transform: translate(2px, 2px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn:disabled:active {
+  transform: none;
+}
+
+/* Tamanhos */
+.md {
+  padding: 8px 14px;
+  font-size: 1.2rem;
+  box-shadow: 3px 3px 0 var(--shadow);
+}
+.md:active {
+  box-shadow: 1px 1px 0 var(--shadow);
+}
+
+.lg {
+  padding: 12px;
+  font-size: 1.45rem;
+  letter-spacing: 0.08em;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+.lg:active {
+  box-shadow: 2px 2px 0 var(--shadow);
+}
+
+.icon {
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  font-size: 0.95rem;
+}
+.icon:active {
+  transform: translate(1px, 1px);
+}
+
+.block {
+  width: 100%;
+}
+
+/* Variantes */
+.primary {
+  background: var(--good);
+  color: var(--cream);
+}
+.default {
+  background: var(--btn);
+  color: var(--ink);
+}
+.danger {
+  background: var(--danger);
+  color: var(--cream);
+}
+.warning {
+  background: var(--warn);
+  color: var(--cream);
+}
+.window {
+  background: transparent;
+  border-color: var(--cream);
+  color: var(--cream);
+  text-transform: none;
+}

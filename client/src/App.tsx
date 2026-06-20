@@ -4,6 +4,7 @@ import { useTheme } from './hooks/useTheme'
 import { JoinScreen } from './components/JoinScreen'
 import { CallScreen } from './components/CallScreen'
 import { ThemeToggle } from './components/ThemeToggle'
+import { Window } from './ui'
 import styles from './App.module.css'
 
 export default function App() {
@@ -22,20 +23,9 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      <div className={styles.card}>
-        <header className={styles.titlebar}>
-          <span className={styles.titleText}>◖ LOCALL</span>
-          <span className={styles.titleControls}>
-            <ThemeToggle theme={theme} onToggle={toggle} />
-            <span className={styles.winbtns} aria-hidden>
-              ▭ ✕
-            </span>
-          </span>
-        </header>
-        <div className={styles.body}>
-          {inCall ? <CallScreen call={call} /> : <JoinScreen call={call} />}
-        </div>
-      </div>
+      <Window title="LOCALL" controls={<ThemeToggle theme={theme} onToggle={toggle} />}>
+        {inCall ? <CallScreen call={call} /> : <JoinScreen call={call} />}
+      </Window>
       <audio ref={audioRef} autoPlay playsInline />
       <p className={styles.footnote}>ÁUDIO DIRETO PELA SUA REDE LOCAL · SEM INTERNET</p>
     </div>

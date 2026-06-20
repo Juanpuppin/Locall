@@ -1,19 +1,14 @@
 import type { Quality } from '../types'
-import styles from './QualityBadge.module.css'
+import { Badge } from '../ui'
 
-const MAP: Record<Quality, { label: string; cls: string }> = {
-  good: { label: 'Boa conexão', cls: 'good' },
-  ok: { label: 'Conexão ok', cls: 'ok' },
-  poor: { label: 'Conexão ruim', cls: 'poor' },
-  unknown: { label: 'Medindo…', cls: 'unknown' },
+const MAP: Record<Quality, { label: string; variant: 'good' | 'warn' | 'danger' | 'neutral' }> = {
+  good: { label: 'Boa conexão', variant: 'good' },
+  ok: { label: 'Conexão ok', variant: 'warn' },
+  poor: { label: 'Conexão ruim', variant: 'danger' },
+  unknown: { label: 'Medindo…', variant: 'neutral' },
 }
 
 export function QualityBadge({ quality }: { quality: Quality }) {
   const q = MAP[quality]
-  return (
-    <div className={`${styles.badge} ${styles[q.cls]}`}>
-      <span className={styles.dot} />
-      {q.label}
-    </div>
-  )
+  return <Badge variant={q.variant}>{q.label}</Badge>
 }
